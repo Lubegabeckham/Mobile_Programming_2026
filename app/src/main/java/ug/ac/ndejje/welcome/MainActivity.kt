@@ -1,47 +1,35 @@
 package ug.ac.ndejje.welcome
 
-import android.R
 import android.os.Bundle
-import android.widget.Button
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import ug.ac.ndejje.welcome.ui.theme.NdejjeWelcomeAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -49,71 +37,174 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            // Theme now follows system settings by default
             NdejjeWelcomeAppTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
 
+                    NavHost(
+                        navController = navController,
+                        startDestination = "directory"
+                    ) {
+                        // Route 1: Student List (Directory)
+                        composable("directory") {
+                            StudentDirectory(
+                                onViewProfile = { regNo ->
+                                    navController.navigate("profile/$regNo")
+                                }
+                            )
+                        }
+
+                        // Route 2: Profile Details
+                        composable(
+                            route = "profile/{regNo}",
+                            arguments = listOf(navArgument("regNo") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val regNo = backStackEntry.arguments?.getString("regNo") ?: ""
+                            StudentProfileScreen(
+                                regNo = regNo,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StudentDirectory(
+    onViewProfile: (String) -> Unit
+) {
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val allStudents = StudentProvider.studentList
+    val filteredStudents = allStudents.filter {
+        it.name.contains(searchQuery, ignoreCase = true) ||
+                it.regNumber.contains(searchQuery, ignoreCase = true)
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Ndejje Directory", fontWeight = FontWeight.Bold) }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                placeholder = { Text("Search Student...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = null)
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                items(filteredStudents) { student ->
+                    StudentIdCard(
+                        student = student,
+                        onBtnClick = { onViewProfile(student.regNumber) }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun StudentIdCard(student: Student) {
+fun StudentIdCard(student: Student, onBtnClick: () -> Unit) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StudentInfo(student)
-            Button(onClick = { /*Action Here*/ }) {
+            Image(
+                painter = painterResource(id = student.profileImageId),
+                contentDescription = null,
+                modifier = Modifier.size(80.dp).clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+            Text(text = student.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(text = student.regNumber, color = MaterialTheme.colorScheme.secondary)
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onBtnClick) {
                 Text("View Profile")
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudentInfo(student: Student) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(
-            painter = painterResource(id = student.profileImageId),
-            contentDescription = "Profile Picture",
-            modifier = Modifier
-                .size(120.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .padding(bottom = 8.dp),
-            contentScale = ContentScale.Crop
-        )
-        Text(text = student.name, style = MaterialTheme.typography.headlineSmall)
-        Text(text = student.regNumber, color = Color.Gray)
-        if (student.isVerified) {
-            Text("Verified Student", color = Color(0xFF4CAF50))
+fun StudentProfileScreen(regNo: String, onBack: () -> Unit) {
+    val student = StudentProvider.studentList.find { it.regNumber == regNo }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Student Profile") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            student?.let {
+                Image(
+                    painter = painterResource(id = it.profileImageId),
+                    contentDescription = null,
+                    modifier = Modifier.size(150.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = it.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                Text(text = it.regNumber, style = MaterialTheme.typography.bodyLarge)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("University Information", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text("Institution: Ndejje University")
+                        Text("Status: ${if(it.isVerified) "Verified ✅" else "Pending"}")
+                    }
+                }
+            }
         }
     }
 }
-@Composable
-fun StudentDirectory(){
-    val students = StudentProvider.studentList
 
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(16.dp)
-    ) {
-        items(students){student ->
-            StudentIdCard(student = student)
-        }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true)
 @Composable
-fun NdejjePreview() {
+fun DirectoryPreview() {
     NdejjeWelcomeAppTheme {
-        StudentDirectory()
+        StudentDirectory(onViewProfile = {})
     }
 }
