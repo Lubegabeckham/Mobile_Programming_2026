@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
@@ -23,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
@@ -37,7 +41,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // Theme now follows system settings by default
             NdejjeWelcomeAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -47,9 +50,18 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = "directory"
+                        startDestination = "login"
                     ) {
-                        // Route 1: Student List (Directory)
+                        composable("login") {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    navController.navigate("directory") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
                         composable("directory") {
                             StudentDirectory(
                                 onViewProfile = { regNo ->
@@ -58,7 +70,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Route 2: Profile Details
                         composable(
                             route = "profile/{regNo}",
                             arguments = listOf(navArgument("regNo") { type = NavType.StringType })
@@ -76,11 +87,69 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun LoginScreen(onLoginSuccess: () -> Unit) {
+    var regNo by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Ndejje University",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(text = "Student Directory Portal", style = MaterialTheme.typography.bodyMedium)
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = regNo,
+            onValueChange = { regNo = it },
+            label = { Text("Registration Number") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (regNo.isNotBlank() && password.isNotBlank()) onLoginSuccess()
+            })
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = {
+                if (regNo.isNotBlank() && password.isNotBlank()) onLoginSuccess()
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Login", style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudentDirectory(
-    onViewProfile: (String) -> Unit
-) {
+fun StudentDirectory(onViewProfile: (String) -> Unit) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val allStudents = StudentProvider.studentList
     val filteredStudents = allStudents.filter {
